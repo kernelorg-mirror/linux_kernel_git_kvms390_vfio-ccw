@@ -335,6 +335,7 @@ static void cp_unpin_free(struct channel_program *cp)
 	struct ccwchain *chain, *temp;
 	int i;
 
+	cp->initialized = false;
 	list_for_each_entry_safe(chain, temp, &cp->ccwchain_list, next) {
 		for (i = 0; i < chain->ch_len; i++) {
 			pfn_array_table_unpin_free(chain->ch_pat + i,
@@ -701,6 +702,9 @@ int cp_init(struct channel_program *cp, struct device *mdev, union orb *orb)
 	 */
 	cp->orb.cmd.c64 = 1;
 
+	if (!ret)
+		cp->initialized = true;
+
 	return ret;
 }
 
@@ -715,7 +719,8 @@ int cp_init(struct channel_program *cp, struct device *mdev, union orb *orb)
  */
 void cp_free(struct channel_program *cp)
 {
-	cp_unpin_free(cp);
+	if (cp->initialized)
+		cp_unpin_free(cp);
 }
 
 /**
@@ -760,6 +765,10 @@ int cp_prefetch(struct channel_program *cp)
 	struct ccwchain *chain;
 	int len, idx, ret;
 
+	/* this is an error in the caller */
+	if (!cp->initialized)
+		return -EINVAL;
+
 	list_for_each_entry(chain, &cp->ccwchain_list, next) {
 		len = chain->ch_len;
 		for (idx = 0; idx < len; idx++) {
@@ -794,6 +803,10 @@ union orb *cp_get_orb(struct channel_program *cp, u32 intparm, u8 lpm)
 	union orb *orb;
 	struct ccwchain *chain;
 	struct ccw1 *cpa;
+
+	/* this is an error in the caller */
+	if (!cp->initialized)
+		return NULL;
 
 	orb = &cp->orb;
 
@@ -830,6 +843,9 @@ void cp_update_scsw(struct channel_program *cp, union scsw *scsw)
 	struct ccwchain *chain;
 	u32 cpa = scsw->cmd.cpa;
 	u32 ccw_head, ccw_tail;
+
+	if (!cp->initialized)
+		return;
 
 	/*
 	 * LATER:
@@ -868,6 +884,9 @@ bool cp_iova_pinned(struct channel_program *cp, u64 iova)
 {
 	struct ccwchain *chain;
 	int i;
+
+	if (!cp->initialized)
+		return false;
 
 	list_for_each_entry(chain, &cp->ccwchain_list, next) {
 		for (i = 0; i < chain->ch_len; i++)
