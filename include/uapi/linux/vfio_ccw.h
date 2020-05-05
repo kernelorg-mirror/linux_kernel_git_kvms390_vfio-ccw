@@ -44,4 +44,12 @@ struct ccw_schib_region {
 	__u8 schib_area[SCHIB_AREA_SIZE];
 } __packed;
 
+/*
+ * Used for returning a Channel Report Word to userspace.
+ * Note: this is controlled by a capability
+ */
+struct ccw_crw_region {
+	__u32 crw;
+} __packed;
+
 #endif
